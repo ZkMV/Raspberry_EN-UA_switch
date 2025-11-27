@@ -1,41 +1,76 @@
-import glob, time, gi
-gi.require_version("Gtk","3.0")
-gi.require_version("AyatanaAppIndicator3","0.1")
+import glob
+import gi
+
+# Ensure specific versions of Gtk and AppIndicator are used
+gi.require_version("Gtk", "3.0")
+gi.require_version("AyatanaAppIndicator3", "0.1")
+
 from gi.repository import Gtk, GLib, AyatanaAppIndicator3 as AppIndicator
-
-def find_scroll_led():
-    paths = sorted(glob.glob("/sys/class/leds/*scrolllock*/brightness"))
-    return paths[0] if paths else None
-
-BR_PATH = find_scroll_led()
-
-def led_on():
-    try:
-        with open(BR_PATH,"r") as f:
-            return f.read().strip() == "1"
-    except Exception:
-        return False
 
 class Tray:
     def __init__(self):
-        self.ind = AppIndicator.Indicator.new("kbd-scroll", "en", AppIndicator.IndicatorCategory.APPLICATION_STATUS)
+        # Initialize indicator with default icon "en"
+        self.ind = AppIndicator.Indicator.new(
+            "kbd-scroll", 
+            "en", 
+            AppIndicator.IndicatorCategory.APPLICATION_STATUS
+        )
         self.ind.set_status(AppIndicator.IndicatorStatus.ACTIVE)
-        m=Gtk.Menu(); q=Gtk.MenuItem(label="Quit"); q.connect("activate", lambda *_: Gtk.main_quit()); m.append(q); m.show_all()
-        self.ind.set_menu(m)
-        self.cur=None
+
+        # Create the menu
+        menu = Gtk.Menu()
+        quit_item = Gtk.MenuItem(label="Quit")
+        quit_item.connect("activate", lambda *_: Gtk.main_quit())
+        menu.append(quit_item)
+        menu.show_all()
+        self.ind.set_menu(menu)
+
+        # Track current state to avoid unnecessary updates
+        self.cur = "en"
+
+        # Check status every 200 ms
         GLib.timeout_add(200, self.tick)
 
     def tick(self):
-        state = led_on()
-        icon = "ua" if state else "en"
-        if icon != self.cur:
-            self.cur = icon
-            self.ind.set_icon(icon)   # en/ua з теми hicolor
+        """
+        Check the Scroll Lock LED status dynamically.
+        Logic:
+        - If the LED file is found: read status and update icon (en/ua).
+        - If the LED file is NOT found (keyboard sleep/disconnected): DO NOTHING. Keep the last known icon.
+        """
+        # Search for the LED path every tick because BT keyboards change input IDs or disappear
+        paths = glob.glob("/sys/class/leds/*scrolllock*/brightness")
+
+        # Case 1: Keyboard is asleep or disconnected
+        if not paths:
+            # Do nothing, keep the current icon state
+            return True
+
+        # Case 2: Keyboard is active
+        try:
+            # Use the first found path
+            path = paths[0]
+            with open(path, "r") as f:
+                content = f.read().strip()
+                # Assuming '1' means ON (UA) and '0' means OFF (EN)
+                is_ua = (content == "1")
+
+            new_icon = "ua" if is_ua else "en"
+
+            # Update the tray icon only if the state has changed
+            if new_icon != self.cur:
+                self.cur = new_icon
+                self.ind.set_icon(new_icon)
+
+        except Exception:
+            # Handle cases where the file disappears during read (race condition)
+            # Do nothing, try again next tick
+            pass
+
         return True
 
-if __name__=="__main__":
-    if not BR_PATH:
-        # немає ScrollLock у системі
-        print("No ScrollLock LED found at /sys/class/leds/*scrolllock*/brightness")
-    else:
-        Tray(); Gtk.main()
+if __name__ == "__main__":
+    # Start the tray icon unconditionally
+    # It will wait for the keyboard to appear
+    Tray()
+    Gtk.main()

@@ -30,6 +30,7 @@ Copy code
     └── 24x24/
         ├── en.png
         └── ua.png
+```
 kbd_tray.py — Python‑скрипт трея (Ayatana AppIndicator).
 
 icons/.../en.png, icons/.../ua.png — іконки з прапорами для 22×22 та 24×24.
@@ -141,3 +142,41 @@ with open("/mnt/data/README.md", "w", encoding="utf-8") as f:
 f.write(readme)
 
 "/mnt/data/README.md"
+
+
+----------
+# EN/UA Tray Indicator for Raspberry Pi OS (Labwc & Wayfire)
+
+Невеликий трей-індикатор **EN/UA** для Raspberry Pi OS (Bookworm).  
+Працює як на **Labwc** (новий стандарт), так і на **Wayfire**.
+
+Показує **EN** або **UA** залежно від стану **Scroll Lock** LED.  
+Скрипт динамічно відстежує підключення клавіатури: якщо це Bluetooth-клавіатура, яка "засинає", індикатор коректно очікує її пробудження, не вилітаючи з помилкою.
+
+---
+
+## History / Історія змін
+
+### v02 (Current)
+
+- **Labwc Support:** Перевірено та адаптовано для роботи в середовищі Labwc (RPi OS за замовчуванням).
+- **Dynamic Hotplug:** Скрипт більше не падає, якщо клавіатура відсутня при запуску або йде в сон (Bluetooth).
+- **Improved Autostart:** Додано затримку (`sleep`) при запуску, щоб іконка гарантовано з'являлася в треї після завантаження графіки.
+
+### v01
+
+- Початкова версія для Wayfire.
+- Базова підтримка Scroll Lock LED.
+
+---
+
+## Вимоги
+
+- Raspberry Pi OS **Bookworm** (Labwc або Wayfire).
+- Системний трей (wf-panel-pi).
+- Пакети Python:
+
+```bash
+sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 \
+     gir1.2-ayatanaappindicator3-0.1 libgtk-3-bin
+```
